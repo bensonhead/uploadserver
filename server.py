@@ -5,6 +5,8 @@ import socketserver
 import tempfile
 from FormDataParser import FormDataParser
 import hashlib
+import datetime
+import os.path
 
 PORT=9081
 
@@ -25,13 +27,14 @@ class UploadParser(FormDataParser):
         self.tf=tempfile.NamedTemporaryFile(dir=".", delete=False)
         self.dgst=hashlib.sha256()
         def data(self, buffer):
+            print("received %d bytes for %s"%(len(buffer),self.fieldName))
             self.dgst.update(buffer)
             self.tf.write(buffer)
         def close(self):
             self.tf.close()
             self.receivedSha256=self.dgst.hexdigest()
             self.receivedFileName=self.fieldFileName.decode('utf-8')
-            self.receivedDiskName=self.tf.name
+            self.receivedDiskName=os.path.basename(self.tf.name)
             self.receivedSize=self.count
         self.fieldClose=close
         self.fieldData=data
@@ -74,7 +77,9 @@ class UploadParser(FormDataParser):
 
     def finalizeForm(self):
         with open("upload.log","a") as log:
-            log.write("%s,%s,%s,%d,%s\n"%(
+            now=datetime.datetime.now()
+            log.write("%s,%s,%s,%s,%d,%s\n"%(
+                now.strftime("%Y-%m-%d %H:%M:%S"),
                 self.receivedDiskName,
                 self.receivedExtra,
                 self.receivedSha256,

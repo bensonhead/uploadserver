@@ -7,8 +7,13 @@ from FormDataParser import FormDataParser
 import hashlib
 import datetime
 import os.path
+from pathlib import Path
 
-PORT=9081
+PORT=9080
+
+UPLOAD_DIR=os.path.join(os.environ['HOME'],'uploads')
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 class UploadParser(FormDataParser):
     def __init__(self,boundary):
@@ -16,75 +21,102 @@ class UploadParser(FormDataParser):
         self.count=0
         self.dgst=None
         self.receivedSha256='00'
-        self.receivedFileName=''
-        self.receivedDiskName=''
+        self.receivedOriginalFileName=''
+        self.receivedDataName=''
+        self.receivedSigName=''
         self.receivedSize=0
-        self.receivedExtra=b''
+        self.receivedFrom=b''
         self.fieldClose=None
         self.fieldData=None
 
-    def setup_field_file(self):
-        self.tf=tempfile.NamedTemporaryFile(dir=".", delete=False)
+    def setup_field_data(self):
+        self.tf=tempfile.NamedTemporaryFile(dir=UPLOAD_DIR, delete=False)
         self.dgst=hashlib.sha256()
         def data(self, buffer):
-            print("received %d bytes for %s"%(len(buffer),self.fieldName))
             self.dgst.update(buffer)
             self.tf.write(buffer)
         def close(self):
+            # print("close_field_data")
             self.tf.close()
             self.receivedSha256=self.dgst.hexdigest()
-            self.receivedFileName=self.fieldFileName.decode('utf-8')
-            self.receivedDiskName=os.path.basename(self.tf.name)
+            self.receivedOriginalFileName=self.fieldFileName.decode('utf-8')
+            self.receivedDataName=self.tf.name
             self.receivedSize=self.count
         self.fieldClose=close
         self.fieldData=data
+        print("c=%s,d=%s"%(self.fieldClose,self.fieldData))
 
-    def setup_field_extra(self):
+
+    def setup_field_sig(self):
+        self.tf=tempfile.NamedTemporaryFile(dir=UPLOAD_DIR, delete=False)
+        def data(self, buffer):
+            if self.count<=1024*16 :
+                self.tf.write(buffer)
+            else:
+                print("too much data for %s, ignore"%self.fieldName)
+
+        def close(self):
+            self.tf.close()
+            self.receivedSigName=self.tf.name
+        self.fieldClose=close
+        self.fieldData=data
+
+    def setup_field_from(self):
         def data(self,buffer):
             take=len(buffer)
             if self.count>128:
                 take=128-self.count
             if take>0:
-                self.receivedExtra+=buffer[0:take]
+                self.receivedFrom+=buffer[0:take]
             # print("append %d bytes to %s"%(take,self.fieldName))
                 
         def close(self):
-            self.receivedExtra=self.receivedExtra.decode("utf-8")
+            self.receivedFrom=self.receivedFrom.decode("utf-8")
         self.fieldClose=close
         self.fieldData=data
 
 
     def processPartialFieldData(self,buffer):
+        # print("received %d bytes for %s"%(len(buffer),self.fieldName))
         if len(buffer)==0: return
         self.count+=len(buffer)
         if self.fieldData != None:
             self.fieldData(self,buffer)
+        else:
+            print("WOx7VAedWye12lEde data processor is not defined")
+
 
     def finalizeHeaders(self):
         # print("received field %s",self.fieldName)
-        if self.fieldName==b'file' : self.setup_field_file()
-        elif self.fieldName==b'extra' : self.setup_field_extra()
+        if self.fieldName==b'data' : self.setup_field_data()
+        elif self.fieldName==b'sig' : self.setup_field_sig()
+        elif self.fieldName==b'from' : self.setup_field_from()
         else:
             self.fieldClose=None
-            self.fieldData=None
+            self.fieldClose=None
         self.count=0
 
     def finalizeField(self):
+        print("finish field %s"%self.fieldName)
         if self.fieldClose!=None:
             self.fieldClose(self)
+        else:
+            print("W7M1838T3E7DKHzdQ no field closer")
         self.fieldClose=None
         self.fieldData=None
 
     def finalizeForm(self):
-        with open("upload.log","a") as log:
+        os.rename(self.receivedSigName,self.receivedDataName+".shig")
+        self.receivedDataName=os.path.basename(self.receivedDataName)
+        with open(os.path.join(UPLOAD_DIR,"upload.log"),"a") as log:
             now=datetime.datetime.now()
             log.write("%s,%s,%s,%s,%d,%s\n"%(
                 now.strftime("%Y-%m-%d %H:%M:%S"),
-                self.receivedDiskName,
-                self.receivedExtra,
+                self.receivedFrom,
+                self.receivedDataName,
                 self.receivedSha256,
                 self.receivedSize,
-                self.receivedFileName))
+                self.receivedOriginalFileName))
         
 class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
   def do_POST(self):
@@ -114,12 +146,14 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     print(f"{boundary=}")
 
     # debug
-    # body=self.rfile.read(contentlength)
-    # file = tempfile.NamedTemporaryFile(dir=".",delete=False)
-    # file.write(body)
-    # file.close()
     prs=UploadParser(boundary)
-    prs.parse(self.rfile,contentlength)
+    if self.path == '/dump.html':
+        body=self.rfile.read(contentlength)
+        file = tempfile.NamedTemporaryFile(dir=UPLOAD_DIR,prefix="body",delete=False)
+        file.write(body)
+        file.close()
+    else:
+        prs.parse(self.rfile,contentlength)
     prs.finalizeForm()
 
     self.send_response(200)
@@ -135,9 +169,9 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         )%(
             prs.receivedSize,
             contentlength,
-            prs.receivedFileName,
+            prs.receivedOriginalFileName,
             prs.receivedSha256,
-            prs.receivedDiskName)),'utf8'))
+            prs.receivedDataName)),'utf8'))
     return
 
 with socketserver.TCPServer(("",PORT),MyHttpRequestHandler) as httpd:

@@ -4,10 +4,12 @@
 <title>Upload file</title>
 </head>
 <body>
-<form method="POST" enctype="multipart/form-data">
-<input type="file" name="file"></input>
-<input type="hidden" name="extra" value="X916OSZN15BDPHXR"></input>
-<br/>
+<form method="POST">
+<table>
+<tr><td><label for="from">From: </label><td><input accesskey="f" type="text" name="from"></input><br/>
+<tr><td><label for="sig">Signature: </label><td><input accesskey="s" type="file" name="sig"></input><br/>
+<tr><td><label for="from">Data: </label><td><input accesskey="d" type="file" name="file"></input><br/>
+</table>
 <input type="submit"></input>
 </form>
 </body>

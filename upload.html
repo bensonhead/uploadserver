@@ -4,11 +4,11 @@
 <title>Upload file</title>
 </head>
 <body>
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
 <table>
 <tr><td><label for="from">From: </label><td><input accesskey="f" type="text" name="from"></input><br/>
 <tr><td><label for="sig">Signature: </label><td><input accesskey="s" type="file" name="sig"></input><br/>
-<tr><td><label for="from">Data: </label><td><input accesskey="d" type="file" name="file"></input><br/>
+<tr><td><label for="file">Data: </label><td><input accesskey="d" type="file" name="data"></input><br/>
 </table>
 <input type="submit"></input>
 </form>

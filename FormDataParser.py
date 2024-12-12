@@ -2,10 +2,19 @@ from enum import Enum
 import os
 
 class FormDataParser:
+    """Parse incoming string as multipart/form-data object.
+    Called for each field:
+    .finalizeHeaders -- when parsed all headers for the field, but before any field data
+    .processPartialFieldData -- every time there is another portion of field data (may be called more than once if there is a lot of data)
+    .finalizeField -- after reading after all the data for the field is read
+    Called once in the end:
+    .finalizeForm -- once in the end
+    """
     MAXHEADERLENGTH=16384
+    BUFFERSIZE=64*1024
+
     BPREFIX=b"--"
     CRLF=b"\r\n"
-    BUFFERSIZE=64*1024
     
     class LookFor(Enum):
         HeaderLine=1
@@ -20,8 +29,9 @@ class FormDataParser:
         self.headerName=None
         self.headerValue=None
 
-    # override this to do your own field processing
     def processPartialFieldData(self,buffer):
+        """Called when receive next chunk of binary data for the field"""
+        
         print(">FLDT> %s:%s"%(self.fieldName,buffer))
 
     def processPartialHeaderLine(self,buffer):
@@ -80,23 +90,35 @@ class FormDataParser:
             except ValueError:
                 print("WWWKJL2CDC4YC3KLF bad part %s"%p)
 
-    # override this to do your own field processing
-    # called before field receives any data, but after all the headers are read
     def finalizeHeaders(self):
-        # called when the empty line separating headers from data
+        """Override this to do your own field processing.
+        This method is called before field receives any data, but after all the
+        headers are read (at empty line separating headers from data).
+        By this point attributes .fieldName, .fieldFileName, .fieldType are set
+        to their parsed value (or None, if not set explicitly)
+        """
         pass
 
     def initializeField(self):
-        # initialize for next round
+        """ Called before processing the next field.
+        Most likely no need to override it.
+        """
         self.fieldName=None
         self.fieldFileName=None
         self.fieldType=None
 
-    # override this to do your own field processing
-    # called when field data is complete and there will be no more
-    # data for this field
     def finalizeField(self):
+        """Override this to do your own field processing.
+        Called when field data is complete and there will be no more
+        data for this field.
+        """
         print("done with the field %s/%s/%s"%(self.fieldType,self.fieldName,self.fieldFileName))
+
+    def finalizeForm(self):
+        """Called after all the fields had been processed and there
+        is no more data in the form.
+        """
+        pass
 
     def parse(self,stream,contentLength):
         eof=False
@@ -185,6 +207,7 @@ class FormDataParser:
                 else:
                     raise Exception("UHXYSA9IV83EABYNI unknown clause %s"%lookFor)
             b_leftover=b_latest
+        self.finalizeForm()
         if totalRead<contentLength:
             print("stopped reading after %d/%d bytes"%(totalRead,contentLength))
 

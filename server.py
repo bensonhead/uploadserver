@@ -9,7 +9,7 @@ import datetime
 import os.path
 from pathlib import Path
 
-PORT=9080
+PORT=9081
 
 UPLOAD_DIR=os.path.join(os.environ['HOME'],'uploads')
 if not os.path.exists(UPLOAD_DIR):
@@ -146,32 +146,35 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
     print(f"{boundary=}")
 
     # debug
-    prs=UploadParser(boundary)
     if self.path == '/dump.html':
         body=self.rfile.read(contentlength)
         file = tempfile.NamedTemporaryFile(dir=UPLOAD_DIR,prefix="body",delete=False)
         file.write(body)
         file.close()
-    else:
-        prs.parse(self.rfile,contentlength)
-    prs.finalizeForm()
+        self.send_response(200)
+        self.send_header('Content-type','text/plain; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(bytes("Saved body to %s"%os.basename(file.name),"utf-8"))
 
-    self.send_response(200)
-    self.send_header('Content-type','text/plain; charset=utf-8')
-    self.end_headers()
-    # self.wfile.write(bytes(("POST request saved to %s"%file.name),'utf8'))
-    self.wfile.write(bytes((
-        ("POST request complete.\r\n"
-        "Written %d/%d bytes\r\n"
-        "file %s\r\n"
-        "sha256 %s\r\n"
-        "saved as %s\r\n"
-        )%(
-            prs.receivedSize,
-            contentlength,
-            prs.receivedOriginalFileName,
-            prs.receivedSha256,
-            prs.receivedDataName)),'utf8'))
+    else:
+        prs=UploadParser(boundary)
+        prs.parse(self.rfile,contentlength)
+        self.send_response(200)
+        self.send_header('Content-type','text/plain; charset=utf-8')
+        self.end_headers()
+        # self.wfile.write(bytes(("POST request saved to %s"%file.name),'utf8'))
+        self.wfile.write(bytes((
+            ("POST request complete.\r\n"
+            "Written %d/%d bytes\r\n"
+            "file %s\r\n"
+            "sha256 %s\r\n"
+            "saved as %s\r\n"
+            )%(
+                prs.receivedSize,
+                contentlength,
+                prs.receivedOriginalFileName,
+                prs.receivedSha256,
+                prs.receivedDataName)),'utf8'))
     return
 
 with socketserver.TCPServer(("",PORT),MyHttpRequestHandler) as httpd:

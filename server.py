@@ -9,7 +9,7 @@ import datetime
 import os.path
 from pathlib import Path
 
-PORT=9081
+PORT=9080
 
 UPLOAD_DIR=os.path.join(os.environ['HOME'],'uploads')
 if not os.path.exists(UPLOAD_DIR):

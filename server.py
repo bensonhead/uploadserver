@@ -8,10 +8,16 @@ import hashlib
 import datetime
 import os.path
 from pathlib import Path
+import sys
 
 PORT=9080
+if len(sys.argv)>=2:
+    PORT=int(sys.argv[1])
 
 UPLOAD_DIR=os.path.join(os.environ['HOME'],'uploads')
+if len(sys.argv)>=3:
+    UPLOAD_DIR=sys.argv[2]
+
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 

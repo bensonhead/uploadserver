@@ -18,6 +18,9 @@ UPLOAD_DIR=os.path.join(os.environ['HOME'],'uploads')
 if len(sys.argv)>=3:
     UPLOAD_DIR=sys.argv[2]
 
+SCRIPT_DIR=os.path.dirname(os.path.realpath(__file__))
+
+
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 
@@ -25,36 +28,36 @@ class UploadParser(FormDataParser):
     def __init__(self,boundary):
         super(UploadParser,self).__init__(boundary)
         self.count=0
+        # to succeed, the form must contain these 3 fields
+        self.receivedFrom=None
+        self.receivedSigName=None
+        self.receivedDataName=None
         self.dgst=None
         self.receivedSha256='00'
         self.receivedOriginalFileName=''
-        self.receivedDataName=''
-        self.receivedSigName=''
         self.receivedSize=0
-        self.receivedFrom=b''
         self.fieldClose=None
         self.fieldData=None
 
     def setup_field_data(self):
         self.tf=tempfile.NamedTemporaryFile(dir=UPLOAD_DIR, delete=False)
+        self.receivedDataName=self.tf.name
         self.dgst=hashlib.sha256()
         def data(self, buffer):
             self.dgst.update(buffer)
             self.tf.write(buffer)
         def close(self):
-            # print("close_field_data")
             self.tf.close()
             self.receivedSha256=self.dgst.hexdigest()
             self.receivedOriginalFileName=self.fieldFileName.decode('utf-8')
-            self.receivedDataName=self.tf.name
             self.receivedSize=self.count
         self.fieldClose=close
         self.fieldData=data
-        print("c=%s,d=%s"%(self.fieldClose,self.fieldData))
 
 
     def setup_field_sig(self):
         self.tf=tempfile.NamedTemporaryFile(dir=UPLOAD_DIR, delete=False)
+        self.receivedSigName=self.tf.name
         def data(self, buffer):
             if self.count<=1024*16 :
                 self.tf.write(buffer)
@@ -63,11 +66,11 @@ class UploadParser(FormDataParser):
 
         def close(self):
             self.tf.close()
-            self.receivedSigName=self.tf.name
         self.fieldClose=close
         self.fieldData=data
 
     def setup_field_from(self):
+        self.receivedFrom=b''
         def data(self,buffer):
             take=len(buffer)
             if self.count>128:
@@ -75,7 +78,7 @@ class UploadParser(FormDataParser):
             if take>0:
                 self.receivedFrom+=buffer[0:take]
             # print("append %d bytes to %s"%(take,self.fieldName))
-                
+
         def close(self):
             self.receivedFrom=self.receivedFrom.decode("utf-8")
         self.fieldClose=close
@@ -103,6 +106,7 @@ class UploadParser(FormDataParser):
         self.count=0
 
     def finalizeField(self):
+        if self.fieldName==None: return
         print("finish field %s"%self.fieldName)
         if self.fieldClose!=None:
             self.fieldClose(self)
@@ -111,19 +115,53 @@ class UploadParser(FormDataParser):
         self.fieldClose=None
         self.fieldData=None
 
+    def discardFiles(self):
+            if self.receivedSigName!=None: os.remove(self.receivedSigName)
+            if self.receivedDataName!=None: os.remove(self.receivedDataName)
+            self.receivedSigName=None
+            self.receivedDataName=None
+
     def finalizeForm(self):
-        os.rename(self.receivedSigName,self.receivedDataName+".shig")
-        self.receivedDataName=os.path.basename(self.receivedDataName)
         with open(os.path.join(UPLOAD_DIR,"upload.log"),"a") as log:
-            now=datetime.datetime.now()
-            log.write("%s,%s,%s,%s,%d,%s\n"%(
-                now.strftime("%Y-%m-%d %H:%M:%S"),
+            now=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if (
+                self.receivedFrom==None
+                or self.receivedSigName==None
+                or self.receivedDataName==None
+            ):
+                self.discardFiles()
+                if self.receivedFrom==None: self.receivedFrom="<discard>"
+                log.write("%s,%s,<none>,%s,%d,%s\n"%(now,
+                self.receivedFrom,
+                self.receivedSha256,
+                self.receivedSize,
+                self.receivedOriginalFileName))
+                self.receivedFrom=None
+            else:
+                # verify signature
+                rc=os.system("%s %s %s"%
+                    (os.path.join(SCRIPT_DIR,"validate.sh"),
+                    self.receivedDataName,
+                    self.receivedSigName))
+                if rc!=0:
+                    self.discardFiles()
+                    log.write("%s,%s,%s,%s,%d,%s\n"%(now,
+                    self.receivedFrom,
+                    "<badsignature>",
+                    self.receivedSha256,
+                    self.receivedSize,
+                    self.receivedOriginalFileName))
+                    return
+                # if successful, rename signature file and log
+                os.rename(self.receivedSigName,self.receivedDataName+".shig")
+                self.receivedDataName=os.path.basename(self.receivedDataName)
+                log.write("%s,%s,%s,%s,%d,%s\n"%(now,
                 self.receivedFrom,
                 self.receivedDataName,
                 self.receivedSha256,
                 self.receivedSize,
                 self.receivedOriginalFileName))
-        
+
 class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
   def do_POST(self):
     print(f"{self.command=}")
@@ -169,18 +207,21 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-type','text/plain; charset=utf-8')
         self.end_headers()
         # self.wfile.write(bytes(("POST request saved to %s"%file.name),'utf8'))
-        self.wfile.write(bytes((
-            ("POST request complete.\r\n"
-            "Written %d/%d bytes\r\n"
-            "file %s\r\n"
-            "sha256 %s\r\n"
-            "saved as %s\r\n"
-            )%(
-                prs.receivedSize,
-                contentlength,
-                prs.receivedOriginalFileName,
-                prs.receivedSha256,
-                prs.receivedDataName)),'utf8'))
+        if prs.receivedFrom == None:
+            self.wfile.write(bytes("Data discarded","ascii"))
+        else:
+            self.wfile.write(bytes((
+                ("POST request complete.\r\n"
+                "Written %d/%d bytes\r\n"
+                "file %s\r\n"
+                "sha256 %s\r\n"
+                "saved as %s\r\n"
+                )%(
+                    prs.receivedSize,
+                    contentlength,
+                    prs.receivedOriginalFileName,
+                    prs.receivedSha256,
+                    prs.receivedDataName)),'utf8'))
     return
 
 with socketserver.TCPServer(("",PORT),MyHttpRequestHandler) as httpd:

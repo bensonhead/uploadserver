@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Upload file</title>
+<script>
+CE=(el)=>document.createElement(el)
+ID=(id)=>document.getElementById(id)
+function file_change(){
+  var f=this
+  console.log(f.files)
+  if(f.files.length==0) {
+    var c=f.parentElement
+    var r=c.parentElement
+    var t=r.parentElement
+    if( t.childElementCount>2 ) {
+      t.removeChild(r)
+    }
+    return
+  }
+  var t=ID('t').tBodies[0]
+  var r=CE('tr')
+  var c=CE('td')
+  var l=CE('label')
+  l.setAttribute("for","file")
+  l.textContent="Data :"
+  c.appendChild(l)
+  r.appendChild(c)
+  c=CE('td')
+  l=CE('input')
+  l.setAttribute("type","file")
+  l.setAttribute("name","data")
+  l.setAttribute("multiple","")
+  l.addEventListener("change",file_change)
+  c.appendChild(l)
+  r.appendChild(c)
+  t.appendChild(r)
+
+}
+</script>
+</head>
+<body>
+<form method="POST" enctype="multipart/form-data">
+<table id="t">
+<tr><td><label for="from">From: </label><td><input accesskey="f" type="text" name="from"></input><br/>
+<tr><td><label for="file">Data: </label><td><input id="f1" accesskey="d" type="file" name="data" multiple"></input><br/>
+</table>
+<input type="submit"></input>
+</form>
+<script>
+ID('f1').addEventListener('change',file_change)
+</script>
+</body>
+</html>

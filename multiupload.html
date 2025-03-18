@@ -5,7 +5,7 @@
 <script>
 CE=(el)=>document.createElement(el)
 ID=(id)=>document.getElementById(id)
-function file_change(){
+function file_change(event){
   var f=this
   console.log(f.files)
   if(f.files.length==0) {
@@ -34,20 +34,38 @@ function file_change(){
   c.appendChild(l)
   r.appendChild(c)
   t.appendChild(r)
-
+}
+function from_change(event)
+{
+  var s=ID('submit')
+  if( s.disabled=ID('from').value=='' ){
+    s.title="Enter the source of the file in 'From' field"
+  } else {
+    s.title=''
+  }
+}
+function file_drop(event){
+  console.log(event)
 }
 </script>
 </head>
 <body>
 <form method="POST" enctype="multipart/form-data">
 <table id="t">
-<tr><td><label for="from">From: </label><td><input accesskey="f" type="text" name="from"></input><br/>
-<tr><td><label for="file">Data: </label><td><input id="f1" accesskey="d" type="file" name="data" multiple"></input><br/>
+<tr><td><label for="from">From: </label><td><input accesskey="f" type="text" name="from" id="from"></input><br/>
+<tr><td><label for="file">Data: </label><td><input id="f1" accesskey="d" type="file" name="data" multiple></input><br/>
 </table>
-<input type="submit"></input>
+<input type="submit" id="submit"></input>
 </form>
+<hr/>
+<div id="dz" style="border:black solid 1px">
+  <p>Drag one or more files to this <i>drop zone</i>.</p>
+</div>
 <script>
 ID('f1').addEventListener('change',file_change)
+ID('from').addEventListener('input',from_change)
+from_change()
+ID('dz').addEventListener('drop',file_drop)
 </script>
 </body>
 </html>

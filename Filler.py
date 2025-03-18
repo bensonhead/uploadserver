@@ -1,5 +1,7 @@
 import random
-
+ALP_AR="աբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆև"
+ALP_GE="აბგდევზთიკლმნოპჟრსტუფქღყშჩცძწჭხჯჰ"
+ALP_GR="αβγδεζηθικλμνξοπρςτυφχψω"
 def pfw(weights):
     s=sum(weights)
     return [w/s for w in weights]
@@ -26,10 +28,12 @@ class Filler:
     def word(self):
         return ''.join([self.ALP[int(self.g.random()*len(self.ALP))] for _ in range(weighted(self.ENG_WL_P,self.g.random())+1) ])
     
+    DIRP=pfw([1,20,3])
+    DIRL=["../","","/"]
     def linkword(self):
         w=self.word()
         if self.g.random()<0.01 :
-            d=["../","","/"][weighted([1,20,3],self.g.random())]
+            d=self.DIRL[weighted(self.DIRP,self.g.random())]
             if d=="/": d=self.word()+d
             w='<a href="%s%s.html">%s</a>'%(d,w,w)
         return w
@@ -89,4 +93,5 @@ if __name__=='__main__':
     seed=None
     if len(sys.argv)>1: seed=sys.argv[1]
     c=Filler(seed)
+    c.ALP=ALP_GR
     print(c.html())

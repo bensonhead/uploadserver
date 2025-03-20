@@ -1,23 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:1em auto;max-width:40em;padding:0 .62em;font:1.2em/1.62 serif;}
+h1,h2,h3,h4{line-height:1.2;font-family:sans-serif}
+H1 {text-align:center;color:navy}
+@media print{body{max-width:none}}
+#dz { border:1px solid black }
+</style>
 <title>Upload file</title>
 <script>
 CE=(el)=>document.createElement(el)
 ID=(id)=>document.getElementById(id)
-function file_change(event){
-  var f=this
-  console.log(f.files)
-  if(f.files.length==0) {
-    var c=f.parentElement
-    var r=c.parentElement
-    var t=r.parentElement
-    if( t.childElementCount>2 ) {
-      t.removeChild(r)
-    }
-    return
-  }
-  var t=ID('t').tBodies[0]
+nodef=(ev)=>ev.preventDefault()
+function newFileInput()
+{
   var r=CE('tr')
   var c=CE('td')
   var l=CE('label')
@@ -33,7 +32,27 @@ function file_change(event){
   l.addEventListener("change",file_change)
   c.appendChild(l)
   r.appendChild(c)
-  t.appendChild(r)
+  ID('t').tBodies[0].appendChild(r)
+  return l
+}
+
+function fillFileInput(input,files)
+{
+}
+
+function file_change(event){
+  var f=this
+  console.log(f.files) // FileList
+  if(f.files.length==0) {
+    var c=f.parentElement
+    var r=c.parentElement
+    var t=r.parentElement
+    if( t.childElementCount>2 ) {
+      t.removeChild(r)
+    }
+    return
+  }
+  newFileInput()
 }
 function from_change(event)
 {
@@ -45,7 +64,26 @@ function from_change(event)
   }
 }
 function file_drop(event){
-  console.log(event)
+  nodef(event)
+  var dt=event.dataTransfer // DataTransfer
+  var nf=dt.files.length // FileList
+  var ni=dt.items.length // DataTransferItemList
+  console.log('drop',event.type,event)
+  console.log('files=',nf,'items=',ni)
+  ;[...dt.files].forEach((file,i)=>{
+    console.log(i, file.name, file)
+  })
+  var emptyinputs=[]
+  ;[...document.querySelectorAll('input[type=file]')].forEach((input)=>{if(input.files.length==0) emptyinputs.push(input)})
+  if( emptyinputs.length>0 ){
+    emptyinputs[0].files=dt.files // is the event fired?
+    newFileInput()
+
+  }
+}
+function file_drag(event){
+  nodef(event)
+  console.log('drag',event.type,event)
 }
 </script>
 </head>
@@ -58,14 +96,18 @@ function file_drop(event){
 <input type="submit" id="submit"></input>
 </form>
 <hr/>
-<div id="dz" style="border:black solid 1px">
+<div id="dz">
   <p>Drag one or more files to this <i>drop zone</i>.</p>
 </div>
 <script>
 ID('f1').addEventListener('change',file_change)
 ID('from').addEventListener('input',from_change)
 from_change()
-ID('dz').addEventListener('drop',file_drop)
+dz=window
+dz.addEventListener('drop',file_drop)
+dz.addEventListener('dragenter',file_drag)
+dz.addEventListener('dragleave',file_drag)
+dz.addEventListener('dragover',nodef)
 </script>
 </body>
 </html>

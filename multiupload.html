@@ -12,32 +12,13 @@ H1 {text-align:center;color:navy}
 </style>
 <title>Upload file</title>
 <script>
-CE=(el)=>document.createElement(el)
-ID=(id)=>document.getElementById(id)
+dom=(e,...t)=>{if("string"==typeof e){let t="#"==e[0]?1:0;e=document[["createElement","getElementById"][t]](e.substr(t))}for(let n of t)if("object"==typeof n)if(1==n.nodeType)e.appendChild(n);else for(let t in n)n.hasOwnProperty(t)&&("on"==t.substr(0,2)&&"function"==typeof n[t]?e.addEventListener(t.substr(2),n[t]):e.setAttribute(t,n[t]));else e.appendChild(document.createTextNode(n));return e}
 nodef=(ev)=>ev.preventDefault()
 function newFileInput()
 {
-  var r=CE('tr')
-  var c=CE('td')
-  var l=CE('label')
-  l.setAttribute("for","file")
-  l.textContent="Data :"
-  c.appendChild(l)
-  r.appendChild(c)
-  c=CE('td')
-  l=CE('input')
-  l.setAttribute("type","file")
-  l.setAttribute("name","data")
-  l.setAttribute("multiple","")
-  l.addEventListener("change",file_change)
-  c.appendChild(l)
-  r.appendChild(c)
-  ID('t').tBodies[0].appendChild(r)
-  return l
-}
-
-function fillFileInput(input,files)
-{
+  var f
+  dom(dom('#t').tBodies[0],dom('tr',dom('td',dom('label',{'for':'file'},'Data :')),dom('td',f=dom('input',{type:'file',name:'data',multiple:'',onchange:file_change}))))
+  return f
 }
 
 function file_change(event){
@@ -56,12 +37,8 @@ function file_change(event){
 }
 function from_change(event)
 {
-  var s=ID('submit')
-  if( s.disabled=ID('from').value=='' ){
-    s.title="Enter the source of the file in 'From' field"
-  } else {
-    s.title=''
-  }
+  var s=dom('#submit')
+  s.title=(s.disabled=dom('#from').value=='' )?"Enter the source of the file in 'From' field":""
 }
 function file_drop(event){
   nodef(event)
@@ -78,7 +55,6 @@ function file_drop(event){
   if( emptyinputs.length>0 ){
     emptyinputs[0].files=dt.files // is the event fired?
     newFileInput()
-
   }
 }
 function file_drag(event){
@@ -100,14 +76,11 @@ function file_drag(event){
   <p>Drag one or more files to this <i>drop zone</i>.</p>
 </div>
 <script>
-ID('f1').addEventListener('change',file_change)
-ID('from').addEventListener('input',from_change)
+dom('#f1',{onchange:file_change})
+dom('#from',{oninput:from_change})
 from_change()
 dz=window
-dz.addEventListener('drop',file_drop)
-dz.addEventListener('dragenter',file_drag)
-dz.addEventListener('dragleave',file_drag)
-dz.addEventListener('dragover',nodef)
+dom(dz,{ondrop:file_drop, ondragenter:file_drag, ondragleave:file_drag, ondragover:nodef})
 </script>
 </body>
 </html>
